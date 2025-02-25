@@ -894,21 +894,21 @@ export default function TaskTrends({ tasks, onFilterChange }: TaskTrendsProps) {
     const timeStats = useMemo(() => {
       const stats = {
         morning: { 
-          icon: icons.sunrise,
+          icon: 'weather-sunset-up',  // More appropriate icon for morning
           count: 0, 
           label: '6AM - 12PM',
           color: '#FFA000',
           description: 'Early tasks'
         },
         afternoon: { 
-          icon: icons.brightness6,
+          icon: 'weather-sunny',  // Better icon for mid-day
           count: 0, 
           label: '12PM - 6PM',
           color: '#F57C00',
           description: 'Mid-day tasks'
         },
         evening: { 
-          icon: icons.moonStars,
+          icon: 'weather-night',  // More appropriate icon for evening
           count: 0, 
           label: '6PM - 12AM',
           color: '#5C6BC0',
@@ -1018,7 +1018,7 @@ export default function TaskTrends({ tasks, onFilterChange }: TaskTrendsProps) {
   // Add the CategoryPerformance component
   const CategoryPerformance = () => {
     const categoryStats = useMemo(() => {
-      const stats = new Map<string, { completed: number; total: number }>();
+      const stats = new Map<string, { completed: number; total: number; icon: string }>();
       
       filteredTasks.forEach(task => {
         if (!task.category) return;
@@ -1026,11 +1026,12 @@ export default function TaskTrends({ tasks, onFilterChange }: TaskTrendsProps) {
         const category = categories.find(c => c.id === task.category);
         if (!category) return;
 
-        const current = stats.get(category.name) || { completed: 0, total: 0 };
+        const current = stats.get(category.name) || { completed: 0, total: 0, icon: category.icon || 'folder' };
         
         stats.set(category.name, {
           completed: current.completed + (task.completed ? 1 : 0),
-          total: current.total + 1
+          total: current.total + 1,
+          icon: category.icon || 'folder'
         });
       });
 
@@ -1048,7 +1049,14 @@ export default function TaskTrends({ tasks, onFilterChange }: TaskTrendsProps) {
         {categoryStats.map(stat => (
           <View key={stat.name} style={styles.categoryItem}>
             <View style={styles.categoryHeader}>
-              <Text>{stat.name}</Text>
+              <View style={styles.categoryHeaderLeft}>
+                <MaterialCommunityIcons 
+                  name={stat.icon || 'folder'} 
+                  size={20} 
+                  color={stat.color} 
+                />
+                <Text>{stat.name}</Text>
+              </View>
               <Text>{`${stat.completed}/${stat.total}`}</Text>
             </View>
             <View style={styles.progressBar}>
@@ -1502,5 +1510,10 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
     textAlign: 'center',
     marginTop: 2,
+  },
+  categoryHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
 }); 
