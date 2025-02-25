@@ -11,7 +11,7 @@ import TaskGroup from './TaskGroup';
 import { colors } from '../theme/colors';
 import TaskItem from './TaskItem';
 import { DATE_RANGES } from './TaskTrends';
-import { isToday, startOfDay, endOfDay, isSameDay, format } from 'date-fns';
+import { isToday, startOfDay, endOfDay, isSameDay, format, formatDistanceToNow, isPast, differenceInMinutes, differenceInHours, differenceInDays } from 'date-fns';
 import { icons } from '../theme/icons';
 
 type Task = Database['public']['Tables']['tasks']['Row'];
@@ -127,9 +127,51 @@ export default function TaskList({
 
   const processedTasks = sortTasks(filterTasks(filteredTasks));
 
-  const formatDueDate = (date: string | null) => {
-    if (!date) return '';
-    return new Date(date).toLocaleDateString();
+  const formatDueDate = (dueDate: string | null, dueTime: string | null) => {
+    if (!dueDate) return '';
+    
+    const now = new Date();
+    const taskDate = new Date(dueDate);
+    if (dueTime) {
+      const [hours, minutes] = dueTime.split(':');
+      taskDate.setHours(parseInt(hours, 10), parseInt(minutes, 10));
+    }
+
+    // If the date is in the past
+    if (isPast(taskDate)) {
+      const minutesAgo = differenceInMinutes(now, taskDate);
+      if (minutesAgo < 60) {
+        return `${minutesAgo}m ago`;
+      }
+      
+      const hoursAgo = differenceInHours(now, taskDate);
+      if (hoursAgo < 24) {
+        return `${hoursAgo}h ago`;
+      }
+      
+      const daysAgo = differenceInDays(now, taskDate);
+      if (daysAgo === 1) {
+        return 'Yesterday';
+      }
+      return `${daysAgo}d ago`;
+    }
+    
+    // If the date is in the future
+    const minutesLeft = differenceInMinutes(taskDate, now);
+    if (minutesLeft < 60) {
+      return `${minutesLeft}m left`;
+    }
+    
+    const hoursLeft = differenceInHours(taskDate, now);
+    if (hoursLeft < 24) {
+      return `${hoursLeft}h left`;
+    }
+    
+    const daysLeft = differenceInDays(taskDate, now);
+    if (daysLeft === 1) {
+      return 'Tomorrow';
+    }
+    return `${daysLeft}d left`;
   };
 
   const getPriorityColor = (priority: string | null) => {
@@ -349,24 +391,27 @@ export default function TaskList({
   };
 
   const renderTaskItem = ({ item }: { item: Task }) => {
+    // Get category name from the categories list
+    const categoryName = categories.find(cat => cat.id === item.category)?.name;
+
     return (
       <Swipeable
         renderRightActions={() => renderRightActions(item)}
         onSwipeableOpen={() => onSwipeOpen(item)}
       >
         <Surface style={styles.taskItem}>
-          <View style={styles.taskContent}>
+          <TouchableOpacity 
+            style={styles.taskContent}
+            onPress={() => onToggleComplete(item.id, !item.completed)}
+          >
             <View style={styles.taskHeader}>
-              <TouchableOpacity
-                style={styles.checkbox}
-                onPress={() => onToggleComplete(item.id, !item.completed)}
-              >
+              <View style={styles.checkbox}>
                 <MaterialCommunityIcons
                   name={item.completed ? "checkbox-marked-circle" : "checkbox-blank-circle-outline"}
                   size={24}
                   color={item.completed ? colors.success : colors.primary}
                 />
-              </TouchableOpacity>
+              </View>
               <View style={styles.taskTitleContainer}>
                 <Text style={[
                   styles.taskTitle,
@@ -375,43 +420,61 @@ export default function TaskList({
                   {item.title}
                 </Text>
                 
-                {item.description && (
-                  <Text style={styles.taskDescription} numberOfLines={1}>
-                    {item.description}
-                  </Text>
-                )}
+                <View style={styles.taskMetaRow}>
+                  {item.description && (
+                    <Text style={styles.taskDescription} numberOfLines={1}>
+                      {item.description}
+                    </Text>
+                  )}
+                  
+                  <View style={styles.metadataContainer}>
+                    {/* Due time */}
+                    {item.due_date && (
+                      <View style={styles.taskMetaItem}>
+                        <MaterialCommunityIcons 
+                          name="clock-outline"
+                          size={14} 
+                          color={colors.onSurfaceVariant} 
+                        />
+                        <Text style={styles.taskMetaText}>
+                          {formatDueDate(item.due_date, item.due_time)}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Category */}
+                    {categoryName && (
+                      <View style={styles.taskMetaItem}>
+                        <MaterialCommunityIcons 
+                          name="folder-outline"
+                          size={14} 
+                          color={colors.onSurfaceVariant} 
+                        />
+                        <Text style={styles.taskMetaText}>
+                          {categoryName}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Priority tag */}
+                    {item.priority && (
+                      <View style={[
+                        styles.priorityTag, 
+                        { backgroundColor: getPriorityColor(item.priority) + '20' }
+                      ]}>
+                        <Text style={[
+                          styles.priorityText, 
+                          { color: getPriorityColor(item.priority) }
+                        ]}>
+                          {item.priority}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
               </View>
             </View>
-            
-            <View style={styles.taskFooter}>
-              {item.due_date && (
-                <View style={styles.taskMetaItem}>
-                  <MaterialCommunityIcons 
-                    name="calendar"
-                    size={16} 
-                    color={colors.onSurfaceVariant} 
-                  />
-                  <Text style={styles.taskMetaText}>
-                    {formatDueDate(item.due_date)}
-                  </Text>
-                </View>
-              )}
-              
-              {item.priority && (
-                <View style={[
-                  styles.priorityTag, 
-                  { backgroundColor: getPriorityColor(item.priority) + '20' }
-                ]}>
-                  <Text style={[
-                    styles.priorityText, 
-                    { color: getPriorityColor(item.priority) }
-                  ]}>
-                    {item.priority}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
+          </TouchableOpacity>
         </Surface>
       </Swipeable>
     );
@@ -507,36 +570,39 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   taskContent: {
-    padding: 16,
+    padding: 12,
+    flexDirection: 'column',
   },
   taskHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
+    alignItems: 'flex-start',
+    gap: 12,
   },
   checkbox: {
-    marginRight: 12,
+    padding: 2,
   },
   taskTitleContainer: {
     flex: 1,
+    gap: 4,
   },
   taskTitle: {
     fontSize: 16,
     fontWeight: '500',
+    lineHeight: 20,
   },
   completedTaskTitle: {
     textDecorationLine: 'line-through',
     color: colors.onSurfaceVariant,
   },
-  taskDescription: {
-    fontSize: 14,
-    color: colors.onSurfaceVariant,
+  taskMetaRow: {
+    flexDirection: 'column',
+    gap: 4,
   },
-  taskFooter: {
+  metadataContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 8,
+    flexWrap: 'wrap',
+    gap: 8,
   },
   taskMetaItem: {
     flexDirection: 'row',
@@ -547,13 +613,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.onSurfaceVariant,
   },
+  taskDescription: {
+    fontSize: 13,
+    color: colors.onSurfaceVariant,
+    marginBottom: 4,
+  },
   priorityTag: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
   },
   priorityText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
   },
   rightActions: {

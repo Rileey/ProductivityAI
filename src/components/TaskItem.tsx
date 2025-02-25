@@ -10,6 +10,8 @@ import {
   GestureHandlerRootView,
 } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../store';
 
 type Task = Database['public']['Tables']['tasks']['Row'];
 
@@ -108,6 +110,8 @@ function DueTimeDisplay({ dueDate, dueTime, completed }: {
 export default function TaskItem({ task, onToggleComplete, onEdit, onDelete }: TaskItemProps) {
   const swipeableRef = useRef<Swipeable>(null);
   const isOverdue = task.due_date && new Date(task.due_date) < new Date() && !task.completed;
+  const categories = useSelector((state: RootState) => state.categories.categories);
+  const categoryName = categories.find(cat => cat.id === task.category)?.name;
 
   const formatDueDate = (date: string) => {
     const dueDate = new Date(date);
@@ -210,15 +214,15 @@ export default function TaskItem({ task, onToggleComplete, onEdit, onDelete }: T
                     </Text>
                   </View>
                 )}
-                {task.category && (
+                {categoryName && (
                   <View style={[styles.badge, { backgroundColor: `${colors.primary}10` }]}>
                     <MaterialCommunityIcons 
                       name={icons.folder} 
-                      size={14} 
+                      size={12}
                       color={colors.primary} 
                     />
                     <Text style={[styles.badgeText, { color: colors.primary }]}>
-                      {task.category}
+                      {categoryName}
                     </Text>
                   </View>
                 )}
@@ -236,15 +240,6 @@ export default function TaskItem({ task, onToggleComplete, onEdit, onDelete }: T
                     />
                   </View>
                 )}
-              </View>
-
-              <View style={styles.subtasks}>
-                <Text style={styles.subtaskCount}>0/4</Text>
-                <ProgressBar 
-                  progress={0} 
-                  color={colors.primary}
-                  style={styles.subtaskProgress} 
-                />
               </View>
             </View>
           </View>
@@ -293,23 +288,23 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   taskFooter: {
-    gap: 12,
+    gap: 8,
   },
   badges: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
   },
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    gap: 3,
   },
   badgeText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
   },
   subtasks: {

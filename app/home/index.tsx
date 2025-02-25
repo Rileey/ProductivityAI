@@ -154,10 +154,11 @@ export default function Dashboard() {
     await dispatch(deleteTask(taskId));
   };
 
-  const handleToggleComplete = async (taskId: string, completed: boolean) => {
-    const task = tasks.find(t => t.id === taskId);
-    if (task) {
-      await dispatch(toggleTaskStatus(task));
+  const handleTaskComplete = async (taskId: string, completed: boolean) => {
+    try {
+      await dispatch(toggleTaskStatus({ taskId, completed })).unwrap();
+    } catch (error) {
+      console.error('Failed to toggle task status:', error);
     }
   };
 
@@ -269,7 +270,7 @@ export default function Dashboard() {
         onDateSelect={handleDateSelect}
         onEditTask={handleEditTask}
         onDeleteTask={handleDeleteTask}
-        onToggleComplete={handleToggleComplete}
+        onToggleComplete={handleTaskComplete}
         ListHeaderComponent={
           <HeaderComponent 
             selectedDate={selectedDate}

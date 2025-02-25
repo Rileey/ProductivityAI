@@ -3,6 +3,7 @@ import { supabase } from '../../config/supabase';
 import type { Database } from '../../types/database';
 import { retryOperation } from '../../utils/api';
 import { PayloadAction } from '@reduxjs/toolkit';
+import { handleTaskUpdate } from '../../utils/notifications';
 
 type Task = Database['public']['Tables']['tasks']['Row'];
 
@@ -62,14 +63,11 @@ export const addTask = createAsyncThunk(
   'tasks/add',
   async (task: Partial<Task>, { rejectWithValue }) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No authenticated user');
-
       const { data, error } = await supabase
         .from('tasks')
         .insert([{
           ...task,
-          user_id: user.id,
+          user_id: (await supabase.auth.getUser()).data.user?.id,
           completed: false,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -78,9 +76,12 @@ export const addTask = createAsyncThunk(
         .single();
 
       if (error) throw error;
+      
+      // Schedule reminders for the new task
+      await handleTaskUpdate(data);
+      
       return data;
     } catch (error: any) {
-      console.error('Error adding task:', error);
       return rejectWithValue(error.message);
     }
   }
@@ -88,24 +89,24 @@ export const addTask = createAsyncThunk(
 
 export const toggleTaskStatus = createAsyncThunk(
   'tasks/toggleStatus',
-  async (task: Task, { rejectWithValue }) => {
+  async ({ taskId, completed }: { taskId: string; completed: boolean }, { rejectWithValue }) => {
     try {
-      const now = new Date();
-      const dueDate = task.due_date ? new Date(`${task.due_date}T${task.due_time || '23:59:59'}`) : null;
-      const completedOnTime = dueDate ? now <= dueDate : null;
-
       const { data, error } = await supabase
         .from('tasks')
-        .update({
-          completed: !task.completed,
-          completed_at: !task.completed ? now.toISOString() : null,
-          completed_on_time: !task.completed ? completedOnTime : null,
+        .update({ 
+          completed,
+          completed_at: completed ? new Date().toISOString() : null,
+          completed_on_time: completed ? true : null,
         })
-        .eq('id', task.id)
+        .eq('id', taskId)
         .select()
         .single();
 
       if (error) throw error;
+      
+      // Handle notifications based on completion status
+      await handleTaskUpdate(data);
+      
       return data;
     } catch (error: any) {
       return rejectWithValue(error.message);
