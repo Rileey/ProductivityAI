@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, FlatList, StyleSheet, RefreshControl, RefreshControlProps, ScrollView, TouchableOpacity } from 'react-native';
-import { Text, IconButton, Chip, useTheme, List, Checkbox, Menu, Button, Divider } from 'react-native-paper';
+import { Text, IconButton, Chip, useTheme, List, Checkbox, Menu, Button, Divider, Surface } from 'react-native-paper';
+import { Swipeable } from 'react-native-gesture-handler';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useDispatch, useSelector } from 'react-redux';
 import { toggleTaskStatus } from '../store/slices/taskSlice';
 import type { AppDispatch, RootState } from '../store';
@@ -8,9 +10,9 @@ import type { Database } from '../types/database';
 import TaskGroup from './TaskGroup';
 import { colors } from '../theme/colors';
 import TaskItem from './TaskItem';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { DATE_RANGES } from './TaskTrends';
 import { isToday, startOfDay, endOfDay, isSameDay, format } from 'date-fns';
+import { icons } from '../theme/icons';
 
 type Task = Database['public']['Tables']['tasks']['Row'];
 
@@ -322,19 +324,103 @@ export default function TaskList({
     </View>
   );
 
-  const renderTask = ({ item }: { item: Task }) => (
-    <TaskItem
-      task={item}
-      onToggleComplete={onToggleComplete}
-      onEdit={onEditTask}
-      onDelete={onDeleteTask}
-    />
-  );
+  const renderRightActions = (task: Task) => {
+    return (
+      <View style={styles.rightActions}>
+        <TouchableOpacity 
+          style={[styles.actionButton, styles.editButton]}
+          onPress={() => onEditTask(task)}
+        >
+          <MaterialCommunityIcons name={icons.edit} size={20} color="#fff" />
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.actionButton, styles.deleteButton]}
+          onPress={() => onDeleteTask(task.id)}
+        >
+          <MaterialCommunityIcons name={icons.delete} size={20} color="#fff" />
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  const onSwipeOpen = (task: Task) => {
+    // Optional: Add any logic you want to happen when swipe opens
+    console.log('Swipe opened for task:', task.title);
+  };
+
+  const renderTaskItem = ({ item }: { item: Task }) => {
+    return (
+      <Swipeable
+        renderRightActions={() => renderRightActions(item)}
+        onSwipeableOpen={() => onSwipeOpen(item)}
+      >
+        <Surface style={styles.taskItem}>
+          <View style={styles.taskContent}>
+            <View style={styles.taskHeader}>
+              <TouchableOpacity
+                style={styles.checkbox}
+                onPress={() => onToggleComplete(item.id, !item.completed)}
+              >
+                <MaterialCommunityIcons
+                  name={item.completed ? "checkbox-marked-circle" : "checkbox-blank-circle-outline"}
+                  size={24}
+                  color={item.completed ? colors.success : colors.primary}
+                />
+              </TouchableOpacity>
+              <View style={styles.taskTitleContainer}>
+                <Text style={[
+                  styles.taskTitle,
+                  item.completed && styles.completedTaskTitle
+                ]}>
+                  {item.title}
+                </Text>
+                
+                {item.description && (
+                  <Text style={styles.taskDescription} numberOfLines={1}>
+                    {item.description}
+                  </Text>
+                )}
+              </View>
+            </View>
+            
+            <View style={styles.taskFooter}>
+              {item.due_date && (
+                <View style={styles.taskMetaItem}>
+                  <MaterialCommunityIcons 
+                    name="calendar"
+                    size={16} 
+                    color={colors.onSurfaceVariant} 
+                  />
+                  <Text style={styles.taskMetaText}>
+                    {formatDueDate(item.due_date)}
+                  </Text>
+                </View>
+              )}
+              
+              {item.priority && (
+                <View style={[
+                  styles.priorityTag, 
+                  { backgroundColor: getPriorityColor(item.priority) + '20' }
+                ]}>
+                  <Text style={[
+                    styles.priorityText, 
+                    { color: getPriorityColor(item.priority) }
+                  ]}>
+                    {item.priority}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+        </Surface>
+      </Swipeable>
+    );
+  };
 
   return (
     <FlatList
       data={processedTasks}
-      renderItem={renderTask}
+      renderItem={renderTaskItem}
       ListHeaderComponent={
         <>
           {ListHeaderComponent && (
@@ -415,73 +501,75 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   taskItem: {
-    marginHorizontal: 16,
-    marginVertical: 8,
-    borderRadius: 12,
-    backgroundColor: 'white',
-    flexDirection: 'row',
-    padding: 16,
-    gap: 12,
-  },
-  checkbox: {
-    justifyContent: 'center',
+    marginVertical: 4,
+    marginHorizontal: 8,
+    borderRadius: 8,
+    elevation: 1,
   },
   taskContent: {
-    flex: 1,
-    gap: 8,
+    padding: 16,
   },
   taskHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 8,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  checkbox: {
+    marginRight: 12,
+  },
+  taskTitleContainer: {
+    flex: 1,
   },
   taskTitle: {
-    flex: 1,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '500',
   },
-  completedText: {
+  completedTaskTitle: {
     textDecorationLine: 'line-through',
     color: colors.onSurfaceVariant,
   },
-  description: {
+  taskDescription: {
+    fontSize: 14,
     color: colors.onSurfaceVariant,
   },
-  taskBadges: {
+  taskFooter: {
     flexDirection: 'row',
-    gap: 8,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
   },
-  badge: {
+  taskMetaItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
     gap: 4,
   },
-  badgeText: {
+  taskMetaText: {
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
+  },
+  priorityTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  priorityText: {
     fontSize: 12,
     fontWeight: '500',
   },
-  dueDate: {
+  rightActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
   },
-  dueDateText: {
-    fontSize: 12,
-    color: colors.onSurfaceVariant,
+  actionButton: {
+    width: 50,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  subtasks: {
-    marginTop: 4,
+  editButton: {
+    backgroundColor: colors.primary,
   },
-  subtaskCount: {
-    fontSize: 12,
-    color: colors.onSurfaceVariant,
-    marginBottom: 4,
-  },
-  subtaskProgress: {
-    height: 4,
-    borderRadius: 2,
+  deleteButton: {
+    backgroundColor: colors.error,
   },
 }); 

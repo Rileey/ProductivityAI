@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, ScrollView, TouchableOpacity, Platform } from 'react-native';
-import { Modal, Portal, TextInput, Button, Switch, Text, SegmentedButtons, Menu, Chip, IconButton } from 'react-native-paper';
+import { Modal, Portal, TextInput, Button, Text, Surface, Divider } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Database } from '../types/database';
 import { useRouter } from 'expo-router';
@@ -9,6 +9,7 @@ import type { RootState } from '../store';
 import { colors } from '../theme/colors';
 import { icons } from '../theme/icons';
 import { format } from 'date-fns';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 type Category = Database['public']['Tables']['categories']['Row'];
 type Task = Database['public']['Tables']['tasks']['Row'];
@@ -30,8 +31,8 @@ export default function TaskModal({ visible, onDismiss, onSave, task, categories
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [priority, setPriority] = useState<'low' | 'medium' | 'high' | null>(null);
   const [dueTime, setDueTime] = useState<Date | null>(null);
-  const [showCategoryMenu, setShowCategoryMenu] = useState(false);
-  const [showPriorityMenu, setShowPriorityMenu] = useState(false);
+  const [categoryExpanded, setCategoryExpanded] = useState(false);
+  const [priorityExpanded, setPriorityExpanded] = useState(false);
 
   useEffect(() => {
     if (task) {
@@ -53,6 +54,13 @@ export default function TaskModal({ visible, onDismiss, onSave, task, categories
       resetForm();
     }
   }, [task]);
+
+  useEffect(() => {
+    if (visible) {
+      setCategoryExpanded(false);
+      setPriorityExpanded(false);
+    }
+  }, [visible]);
 
   const resetForm = () => {
     setTitle('');
@@ -86,21 +94,6 @@ export default function TaskModal({ visible, onDismiss, onSave, task, categories
     } catch (error) {
       console.error('Failed to save task:', error);
       // Add error message display later
-    }
-  };
-
-  // Date/Time picker handlers
-  const onDateChange = (event: any, selectedDate?: Date) => {
-    setShowDatePicker(false);
-    if (selectedDate && event.type !== 'dismissed') {
-      setDueDate(selectedDate);
-    }
-  };
-
-  const onTimeChange = (event: any, selectedTime?: Date) => {
-    setShowTimePicker(false);
-    if (selectedTime && event.type !== 'dismissed') {
-      setDueTime(selectedTime);
     }
   };
 
@@ -146,86 +139,118 @@ export default function TaskModal({ visible, onDismiss, onSave, task, categories
 
             <View style={styles.inputGroup}>
               <View style={styles.row}>
-                <Chip
-                  icon="calendar"
+                <TouchableOpacity 
+                  style={styles.fieldButton} 
                   onPress={() => setShowDatePicker(true)}
-                  style={styles.dateChip}
-                  mode="outlined"
                 >
-                  {dueDate ? format(dueDate, 'MMM d, yyyy') : 'Due date'}
-                </Chip>
+                  <MaterialCommunityIcons name="calendar" size={20} color={colors.primary} />
+                  <Text style={styles.fieldButtonText}>
+                    {dueDate ? format(dueDate, 'MMM d, yyyy') : 'Due date'}
+                  </Text>
+                </TouchableOpacity>
                 
-                <Chip
-                  icon="clock-outline"
+                <TouchableOpacity 
+                  style={styles.fieldButton} 
                   onPress={() => setShowTimePicker(true)}
-                  style={styles.timeChip}
-                  mode="outlined"
                 >
-                  {dueTime ? format(dueTime, 'h:mm a') : 'Time'}
-                </Chip>
+                  <MaterialCommunityIcons name="clock-outline" size={20} color={colors.primary} />
+                  <Text style={styles.fieldButtonText}>
+                    {dueTime ? format(dueTime, 'h:mm a') : 'Time'}
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
 
             <View style={styles.inputGroup}>
-              <View style={styles.row}>
-                <Chip
-                  icon="folder"
-                  onPress={() => setShowCategoryMenu(true)}
-                  mode="outlined"
-                  style={styles.chip}
-                >
+              <TouchableOpacity
+                style={styles.fieldButton}
+                onPress={() => {
+                  setCategoryExpanded(!categoryExpanded);
+                  setPriorityExpanded(false);
+                }}
+              >
+                <MaterialCommunityIcons name="folder" size={20} color={colors.primary} />
+                <Text style={styles.fieldButtonText}>
                   {category ? categories.find(c => c.id === category)?.name : 'Category'}
-                </Chip>
+                </Text>
+                <MaterialCommunityIcons 
+                  name={categoryExpanded ? "chevron-up" : "chevron-down"} 
+                  size={20} 
+                  color={colors.onSurfaceVariant} 
+                />
+              </TouchableOpacity>
+              
+              {categoryExpanded && (
+                <Surface style={styles.optionsContainer}>
+                  {categories.map(cat => (
+                    <TouchableOpacity
+                      key={cat.id}
+                      style={styles.optionItem}
+                      onPress={() => {
+                        setCategory(cat.id);
+                        setCategoryExpanded(false);
+                      }}
+                    >
+                      <Text style={[
+                        styles.optionText,
+                        cat.id === category && styles.selectedOptionText
+                      ]}>
+                        {cat.name}
+                      </Text>
+                      {cat.id === category && (
+                        <MaterialCommunityIcons name="check" size={18} color={colors.primary} />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </Surface>
+              )}
+            </View>
 
-                <Chip
-                  icon="flag"
-                  onPress={() => setShowPriorityMenu(true)}
-                  mode="outlined"
-                  style={styles.chip}
-                >
+            <View style={styles.inputGroup}>
+              <TouchableOpacity
+                style={styles.fieldButton}
+                onPress={() => {
+                  setPriorityExpanded(!priorityExpanded);
+                  setCategoryExpanded(false);
+                }}
+              >
+                <MaterialCommunityIcons name="flag" size={20} color={colors.primary} />
+                <Text style={styles.fieldButtonText}>
                   {priority ? priority.charAt(0).toUpperCase() + priority.slice(1) : 'Priority'}
-                </Chip>
-              </View>
+                </Text>
+                <MaterialCommunityIcons 
+                  name={priorityExpanded ? "chevron-up" : "chevron-down"} 
+                  size={20} 
+                  color={colors.onSurfaceVariant} 
+                />
+              </TouchableOpacity>
+              
+              {priorityExpanded && (
+                <Surface style={styles.optionsContainer}>
+                  {['high', 'medium', 'low'].map(p => (
+                    <TouchableOpacity
+                      key={p}
+                      style={styles.optionItem}
+                      onPress={() => {
+                        setPriority(p);
+                        setPriorityExpanded(false);
+                      }}
+                    >
+                      <Text style={[
+                        styles.optionText,
+                        p === priority && styles.selectedOptionText
+                      ]}>
+                        {p.charAt(0).toUpperCase() + p.slice(1)}
+                      </Text>
+                      {p === priority && (
+                        <MaterialCommunityIcons name="check" size={18} color={colors.primary} />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </Surface>
+              )}
             </View>
           </ScrollView>
-
-          {/* Priority Menu */}
-          <Menu
-            visible={showPriorityMenu}
-            onDismiss={() => setShowPriorityMenu(false)}
-            anchor={null}
-            style={styles.menu}
-          >
-            {['high', 'medium', 'low'].map(p => (
-              <Menu.Item
-                key={p}
-                onPress={() => {
-                  setPriority(p);
-                  setShowPriorityMenu(false);
-                }}
-                title={p.charAt(0).toUpperCase() + p.slice(1)}
-              />
-            ))}
-          </Menu>
-
-          {/* Category Menu */}
-          <Menu
-            visible={showCategoryMenu}
-            onDismiss={() => setShowCategoryMenu(false)}
-            anchor={null}
-            style={styles.menu}
-          >
-            {categories.map(cat => (
-              <Menu.Item
-                key={cat.id}
-                onPress={() => {
-                  setCategory(cat.id);
-                  setShowCategoryMenu(false);
-                }}
-                title={cat.name}
-              />
-            ))}
-          </Menu>
 
           <View style={styles.buttonContainer}>
             <Button 
@@ -238,32 +263,35 @@ export default function TaskModal({ visible, onDismiss, onSave, task, categories
               Save
             </Button>
           </View>
-        </View>
 
-        {/* Render pickers in a separate Portal to ensure proper overlay */}
-        <Portal>
           {showDatePicker && (
-            <View style={styles.pickerContainer}>
-              <DateTimePicker
-                value={dueDate || new Date()}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={onDateChange}
-              />
-            </View>
+            <DateTimePicker
+              value={dueDate || new Date()}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={(event, selectedDate) => {
+                setShowDatePicker(false);
+                if (selectedDate && event.type !== 'dismissed') {
+                  setDueDate(selectedDate);
+                }
+              }}
+            />
           )}
 
           {showTimePicker && (
-            <View style={styles.pickerContainer}>
-              <DateTimePicker
-                value={dueTime || new Date()}
-                mode="time"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={onTimeChange}
-              />
-            </View>
+            <DateTimePicker
+              value={dueTime || new Date()}
+              mode="time"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={(event, selectedTime) => {
+                setShowTimePicker(false);
+                if (selectedTime && event.type !== 'dismissed') {
+                  setDueTime(selectedTime);
+                }
+              }}
+            />
           )}
-        </Portal>
+        </View>
       </Modal>
     </Portal>
   );
@@ -283,7 +311,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     paddingTop: 8,
     paddingBottom: Platform.OS === 'ios' ? 40 : 24,
-    maxHeight: '85%', // Increased height
+    maxHeight: '85%',
   },
   header: {
     flexDirection: 'row',
@@ -295,7 +323,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.outline,
   },
   headerTitle: {
-    fontSize: 20, // Slightly larger
+    fontSize: 20,
     fontWeight: '600',
     color: colors.onSurface,
     textAlign: 'center',
@@ -307,27 +335,57 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   form: {
-    padding: 20, // Increased padding
+    padding: 20,
   },
   inputGroup: {
-    marginBottom: 24, // Increased spacing between inputs
+    marginBottom: 16,
   },
   input: {
     backgroundColor: 'transparent',
-    fontSize: 16, // Larger font size
-    paddingVertical: 8, // More vertical padding
+    fontSize: 16,
+    paddingVertical: 8,
   },
   row: {
     flexDirection: 'row',
-    gap: 12, // Increased gap
+    gap: 12,
   },
-  dateChip: {
-    flex: 2,
-    height: 40, // Taller chips
+  fieldButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderWidth: 1,
+    borderColor: colors.outline,
+    borderRadius: 8,
+    backgroundColor: colors.surface,
+    marginBottom: 4,
   },
-  timeChip: {
+  fieldButtonText: {
     flex: 1,
-    height: 40, // Taller chips
+    marginLeft: 12,
+    fontSize: 16,
+    color: colors.onSurface,
+  },
+  optionsContainer: {
+    marginTop: 4,
+    borderRadius: 8,
+    overflow: 'hidden',
+    elevation: 2,
+  },
+  optionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.outline,
+  },
+  optionText: {
+    fontSize: 16,
+    color: colors.onSurface,
+  },
+  selectedOptionText: {
+    color: colors.primary,
+    fontWeight: '500',
   },
   buttonContainer: {
     padding: 20,
@@ -341,28 +399,10 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   buttonContent: {
-    height: 44, // Slightly taller button
+    height: 44,
   },
   buttonLabel: {
-    fontSize: 16, // Larger font
+    fontSize: 16,
     fontWeight: '600',
-  },
-  pickerContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    zIndex: 2000,
-  },
-  chip: {
-    flex: 1,
-    height: 40,
-  },
-  menu: {
-    maxWidth: '80%',
-    marginTop: Platform.OS === 'ios' ? -40 : 0,
   },
 }); 

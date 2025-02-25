@@ -7,7 +7,7 @@ import type { Database } from '../types/database';
 import { colors } from '../theme/colors';
 import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
 import { icons, type IconName } from '../theme/icons';
-import { startOfDay, subDays, format } from 'date-fns';
+import { startOfDay, subDays, format, isSameDay } from 'date-fns';
 import StatCard from './StatCard';
 
 type Task = Database['public']['Tables']['tasks']['Row'] & {
@@ -642,24 +642,50 @@ export default function TaskTrends({ tasks, onFilterChange }: TaskTrendsProps) {
 
   const analytics = useMemo(() => {
     const now = new Date();
-    const completedTasks = tasks.filter(t => t.completed).sort((a, b) => {
-      // Sort by completion date, most recent first
-      const dateA = a.completed_at ? new Date(a.completed_at) : new Date(0);
-      const dateB = b.completed_at ? new Date(b.completed_at) : new Date(0);
-      return dateB.getTime() - dateA.getTime();
+    const today = startOfDay(now);
+    
+    // Filter tasks by various statuses
+    const completed = tasks.filter(task => task.completed);
+    const completedOnTime = completed.filter(task => task.completed_on_time);
+    const completedLate = completed.filter(task => !task.completed_on_time);
+    
+    // Update overdue calculation to include elapsed times
+    const overdue = tasks.filter(task => {
+      if (task.completed) return false;
+      
+      // Check if due date is in the past
+      if (task.due_date) {
+        const dueDate = new Date(task.due_date);
+        
+        // If due date is in the past
+        if (dueDate < today) return true;
+        
+        // If due date is today, check time
+        if (isSameDay(dueDate, today) && task.due_time) {
+          // Parse the time (assuming format like "14:30:00")
+          const [hours, minutes] = task.due_time.split(':').map(Number);
+          const dueDateTime = new Date(today);
+          dueDateTime.setHours(hours, minutes, 0, 0);
+          
+          // Check if time has passed
+          return dueDateTime < now;
+        }
+      }
+      
+      return false;
     });
-
+    
+    const pending = tasks.filter(task => 
+      !task.completed && !overdue.includes(task)
+    );
+    
     return {
       total: tasks.length,
-      completed: completedTasks,
-      completedOnTime: tasks.filter(t => t.completed && t.completed_on_time).length,
-      completedLate: tasks.filter(t => t.completed && !t.completed_on_time).length,
-      overdue: tasks.filter(t => {
-        if (t.completed) return false;
-        if (!t.due_date) return false;
-        return new Date(`${t.due_date}T${t.due_time || '23:59:59'}`) < now;
-      }).length,
-      pending: tasks.filter(t => !t.completed).length,
+      completed: completed.length,
+      completedOnTime: completedOnTime.length,
+      completedLate: completedLate.length,
+      overdue: overdue.length,
+      pending: pending.length,
     };
   }, [tasks]);
 
@@ -667,13 +693,13 @@ export default function TaskTrends({ tasks, onFilterChange }: TaskTrendsProps) {
     <Surface style={styles.section}>
       <List.Accordion
         title="Completed Tasks"
-        description={`${analytics.completed.length} tasks completed`}
+        description={`${analytics.completed} tasks completed`}
         expanded={expandedSection === 'completed'}
         onPress={() => setExpandedSection(expandedSection === 'completed' ? null : 'completed')}
         left={props => <List.Icon {...props} icon={icons.checkCircle} color={colors.success} />}
         style={styles.accordion}
       >
-        {analytics.completed.map(task => (
+        {tasks.filter(t => t.completed).map(task => (
           <Surface key={task.id} style={styles.taskItem}>
             <View style={styles.taskContent}>
               <View style={styles.taskHeader}>
