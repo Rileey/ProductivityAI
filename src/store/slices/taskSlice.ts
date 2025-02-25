@@ -155,6 +155,24 @@ export const editTask = createAsyncThunk(
   }
 );
 
+export const updateTask = createAsyncThunk(
+  'tasks/updateTask',
+  async ({ taskId, updates }: { taskId: string; updates: Partial<Task> }, { getState }) => {
+    const response = await supabase
+      .from('tasks')
+      .update(updates)
+      .eq('id', taskId)
+      .select()
+      .single();
+
+    if (response.error) {
+      throw response.error;
+    }
+
+    return response.data;
+  }
+);
+
 export const taskSlice = createSlice({
   name: 'tasks',
   initialState,
@@ -236,6 +254,12 @@ export const taskSlice = createSlice({
       .addCase(editTask.rejected, (state, action) => {
         state.operations.updating = false;
         state.operationErrors['edit'] = action.payload as string;
+      })
+      .addCase(updateTask.fulfilled, (state, action) => {
+        const index = state.tasks.findIndex(task => task.id === action.payload.id);
+        if (index !== -1) {
+          state.tasks[index] = action.payload;
+        }
       });
   }
 });

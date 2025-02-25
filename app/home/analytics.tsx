@@ -8,6 +8,7 @@ import TaskTrends from '../../src/components/TaskTrends';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
 import LoadingScreen from '../../src/components/LoadingScreen';
+import AnalyticsAIInsights from '../../src/components/AnalyticsAIInsights';
 
 type DateRange = 'today' | 'week' | 'month' | 'quarter' | 'all';
 
@@ -66,6 +67,7 @@ export default function Analytics() {
         tasks={tasks} 
         onFilterChange={handleFilterChange}
       />
+      <AnalyticsAIInsights />
     </ScrollView>
   );
 }

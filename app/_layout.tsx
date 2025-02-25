@@ -1,10 +1,13 @@
 import React from 'react';
-import { Slot } from 'expo-router';
-import { Provider } from 'react-redux';
+import { Stack } from 'expo-router';
 import { PaperProvider, MD3LightTheme } from 'react-native-paper';
+import { Provider } from 'react-redux';
+import { store } from '../src/store';
+import { StatusBar } from 'expo-status-bar';
+import AIAssistantProvider from '../src/components/AIAssistantProvider';
 import { AuthProvider } from '../src/contexts/AuthContext';
 import { ThemeProvider } from '../src/contexts/ThemeContext';
-import { store } from '../src/store';
+import { Slot } from 'expo-router';
 import { colors } from '../src/theme/colors';
 
 // Ensure mobile navigation gestures work
@@ -25,7 +28,10 @@ export default function RootLayout() {
         <AuthProvider>
           <ThemeProvider>
             <PaperProvider theme={theme}>
-              <Slot />
+              <StatusBar style="auto" />
+              <AIAssistantProvider>
+                <Slot />
+              </AIAssistantProvider>
             </PaperProvider>
           </ThemeProvider>
         </AuthProvider>
