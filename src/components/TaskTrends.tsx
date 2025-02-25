@@ -9,6 +9,11 @@ import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
 import { icons, type IconName } from '../theme/icons';
 import { startOfDay, subDays, format, isSameDay } from 'date-fns';
 import StatCard from './StatCard';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../store';
+import { getCategoryStyle } from '../constants/categoryColors';
+import AnalyticsFilterBar from './AnalyticsFilterBar';
+import { LineChart } from 'react-native-chart-kit';
 
 type Task = Database['public']['Tables']['tasks']['Row'] & {
   completed_at?: string | null;
@@ -29,6 +34,24 @@ interface TabRoute {
   key: string;
   title: string;
   count: number;
+}
+
+interface CategoryStat {
+  category: string;
+  total: number;
+  completed: number;
+}
+
+interface TimeStats {
+  morningTasks: number;
+  afternoonTasks: number;
+  eveningTasks: number;
+}
+
+interface PriorityStats {
+  high: number;
+  medium: number;
+  low: number;
 }
 
 const PRIORITY_COLORS = {
@@ -66,18 +89,24 @@ export default function TaskTrends({ tasks, onFilterChange }: TaskTrendsProps) {
   const [showRangeMenu, setShowRangeMenu] = useState(false);
   const screenWidth = Dimensions.get('window').width;
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const categories = useSelector((state: RootState) => state.categories.categories);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const filteredTasks = useMemo(() => {
-    if (dateRange === 'all') return tasks;
-
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - DATE_RANGES[dateRange].days);
-
-    return tasks.filter(task => {
-      const taskDate = new Date(task.created_at);
-      return taskDate >= cutoffDate;
-    });
-  }, [tasks, dateRange]);
+    let filtered = tasks;
+    
+    if (selectedCategory) {
+      filtered = filtered.filter(task => task.category === selectedCategory);
+    }
+    
+    if (dateRange !== 'all') {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - DATE_RANGES[dateRange].days);
+      filtered = filtered.filter(task => new Date(task.created_at) >= cutoffDate);
+    }
+    
+    return filtered;
+  }, [tasks, selectedCategory, dateRange]);
 
   // Calculate completion percentage
   const totalTasks = filteredTasks.length;
@@ -734,48 +763,331 @@ export default function TaskTrends({ tasks, onFilterChange }: TaskTrendsProps) {
     </Surface>
   );
 
-  return (
-    <ScrollView style={styles.container}>
-      <Surface style={styles.header}>
-        <Text variant="headlineMedium" style={styles.title}>Task Analytics</Text>
-        <Text variant="bodyLarge" style={styles.subtitle}>
-          Track your productivity and task completion
-        </Text>
-      </Surface>
+  // Update the chart component
+  const CompletionChart = () => {
+    const chartData = useMemo(() => {
+      const days = dateRange === 'week' ? 7 : 30;
+      const data = Array(days).fill(0);
+      const labels = Array(days).fill('').map((_, i) => {
+        const date = new Date();
+        date.setDate(date.getDate() - (days - 1 - i));
+        return format(date, 'd MMM');
+      });
+      
+      filteredTasks.forEach(task => {
+        if (!task.completed || !task.completed_at) return;
+        const date = new Date(task.completed_at);
+        const dayIndex = days - 1 - Math.min(
+          days - 1,
+          Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24))
+        );
+        if (dayIndex >= 0) data[dayIndex]++;
+      });
 
-      <Surface style={styles.section}>
-        <Text variant="titleMedium" style={styles.sectionTitle}>Overview</Text>
-        <View style={styles.statsColumn}>
-          <StatCard
-            title="Completed On Time"
-            value={analytics.completedOnTime}
-            icon={icons.checkCircle}
-            color={colors.success}
-          />
-          <StatCard
-            title="Completed Late"
-            value={analytics.completedLate}
-            icon={icons.clockCheck}
-            color={colors.warning}
-          />
-          <StatCard
-            title="Overdue"
-            value={analytics.overdue}
-            icon={icons.clockAlert}
-            color={colors.error}
-          />
-          <StatCard
-            title="Pending"
-            value={analytics.pending}
-            icon={icons.clockOutline}
-            color={colors.primary}
+      return { data, labels };
+    }, [filteredTasks, dateRange]);
+
+    return (
+      <Surface style={styles.fullWidthCard}>
+        <Text variant="titleMedium" style={styles.cardTitle}>Task Completion Trend</Text>
+        <View style={styles.chartContainer}>
+          <LineChart
+            data={{
+              labels: chartData.labels,
+              datasets: [{
+                data: chartData.data,
+                color: (opacity = 1) => `${colors.primary}${Math.round(opacity * 255).toString(16)}`,
+                strokeWidth: 2,
+              }]
+            }}
+            width={screenWidth - 32}
+            height={220}
+            chartConfig={{
+              backgroundColor: colors.surface,
+              backgroundGradientFrom: colors.surface,
+              backgroundGradientTo: colors.surface,
+              decimalPlaces: 0,
+              color: (opacity = 1) => `${colors.primary}${Math.round(opacity * 255).toString(16)}`,
+              labelColor: (opacity = 1) => colors.onSurfaceVariant,
+              style: { borderRadius: 16 },
+              propsForDots: {
+                r: "4",
+                strokeWidth: "2",
+                stroke: colors.surface
+              },
+              propsForBackgroundLines: {
+                strokeDasharray: '',
+                stroke: `${colors.surfaceVariant}40`,
+              },
+              propsForLabels: {
+                fontSize: 11,
+              }
+            }}
+            bezier
+            style={styles.chart}
+            withVerticalLines={false}
+            withHorizontalLines={true}
+            withDots={true}
+            withShadow={false}
+            segments={4}
           />
         </View>
       </Surface>
+    );
+  };
 
+  // Update the completion trends component
+  const CompletionTrends = () => {
+    const stats = useMemo(() => {
+      const total = filteredTasks.length;
+      const completed = filteredTasks.filter(t => t.completed).length;
+      const onTime = filteredTasks.filter(t => t.completed && t.completed_on_time).length;
+      const late = completed - onTime;
+      const pending = total - completed;
+      
+      return {
+        total,
+        completed,
+        onTime,
+        late,
+        pending,
+        completionRate: total > 0 ? (completed / total) * 100 : 0,
+        onTimeRate: completed > 0 ? (onTime / completed) * 100 : 0
+      };
+    }, [filteredTasks]);
+
+    return (
+      <Surface style={styles.fullWidthCard}>
+        <Text variant="titleMedium" style={styles.cardTitle}>Completion Statistics</Text>
+        <View style={styles.statsGrid}>
+          <StatCard
+            icon={icons.checkCircle}
+            title="Completed"
+            value={stats.completed}
+            subtitle={`${Math.round(stats.completionRate)}% of total`}
+            description={`${stats.pending} pending`}
+            color={colors.success}
+          />
+          <StatCard
+            icon={icons.clockCheck}
+            title="On Time"
+            value={stats.onTime}
+            subtitle={`${Math.round(stats.onTimeRate)}% completion rate`}
+            description={`${stats.late} completed late`}
+            color={colors.primary}
+          />
+          <StatCard
+            icon={icons.clockAlert}
+            title="Overdue"
+            value={stats.late}
+            subtitle="Need attention"
+            description={`${stats.pending} tasks remaining`}
+            color={colors.warning}
+          />
+        </View>
+      </Surface>
+    );
+  };
+
+  // Update the time analysis component
+  const TimeAnalysis = () => {
+    const timeStats = useMemo(() => {
+      const stats = {
+        morning: { 
+          icon: icons.sunrise,
+          count: 0, 
+          label: '6AM - 12PM',
+          color: '#FFA000',
+          description: 'Early tasks'
+        },
+        afternoon: { 
+          icon: icons.brightness6,
+          count: 0, 
+          label: '12PM - 6PM',
+          color: '#F57C00',
+          description: 'Mid-day tasks'
+        },
+        evening: { 
+          icon: icons.moonStars,
+          count: 0, 
+          label: '6PM - 12AM',
+          color: '#5C6BC0',
+          description: 'Evening tasks'
+        }
+      };
+
+      filteredTasks.forEach(task => {
+        if (!task.completed || !task.completed_at) return;
+        const date = new Date(task.completed_at);
+        const hour = date.getHours();
+        
+        if (hour >= 6 && hour < 12) stats.morning.count++;
+        else if (hour >= 12 && hour < 18) stats.afternoon.count++;
+        else stats.evening.count++;
+      });
+
+      return stats;
+    }, [filteredTasks]);
+
+    return (
+      <Surface style={styles.fullWidthCard}>
+        <Text variant="titleMedium" style={styles.cardTitle}>Peak Productivity Hours</Text>
+        <View style={styles.timeGrid}>
+          {Object.entries(timeStats).map(([time, data]) => (
+            <View key={time} style={[
+              styles.timeCard,
+              { backgroundColor: `${data.color}08` }
+            ]}>
+              <MaterialCommunityIcons 
+                name={data.icon} 
+                size={28} 
+                color={data.color} 
+              />
+              <Text style={[styles.timeCount, { color: data.color }]}>
+                {data.count}
+              </Text>
+              <Text style={styles.timeLabel}>{data.label}</Text>
+              <Text style={styles.timeDescription}>{data.description}</Text>
+            </View>
+          ))}
+        </View>
+      </Surface>
+    );
+  };
+
+  // Update the priority distribution component
+  const PriorityDistribution = () => {
+    const priorityStats = useMemo(() => {
+      const stats = {
+        high: 0,
+        medium: 0,
+        low: 0
+      };
+
+      filteredTasks.forEach(task => {
+        if (task.priority) stats[task.priority]++;
+      });
+
+      const total = Object.values(stats).reduce((a, b) => a + b, 0);
+
+      return Object.entries(stats).map(([priority, count]) => ({
+        priority,
+        count,
+        percentage: total > 0 ? (count / total) * 100 : 0,
+        color: PRIORITY_COLORS[priority as keyof typeof PRIORITY_COLORS]
+      }));
+    }, [filteredTasks]);
+
+    return (
+      <Surface style={styles.fullWidthCard}>
+        <Text variant="titleMedium" style={styles.cardTitle}>Task Priority Breakdown</Text>
+        <View style={styles.priorityList}>
+          {priorityStats.map(stat => (
+            <View key={stat.priority} style={styles.priorityItem}>
+              <View style={styles.priorityHeader}>
+                <View style={styles.priorityIcon}>
+                  <MaterialCommunityIcons 
+                    name="flag" 
+                    size={20} 
+                    color={stat.color} 
+                  />
+                </View>
+                <Text style={styles.priorityTitle}>
+                  {stat.priority.charAt(0).toUpperCase() + stat.priority.slice(1)}
+                </Text>
+                <Text style={styles.priorityCount}>{stat.count}</Text>
+              </View>
+              <View style={styles.progressBar}>
+                <View 
+                  style={[
+                    styles.progressFill,
+                    { 
+                      width: `${stat.percentage}%`,
+                      backgroundColor: stat.color
+                    }
+                  ]} 
+                />
+              </View>
+            </View>
+          ))}
+        </View>
+      </Surface>
+    );
+  };
+
+  // Add the CategoryPerformance component
+  const CategoryPerformance = () => {
+    const categoryStats = useMemo(() => {
+      const stats = new Map<string, { completed: number; total: number }>();
+      
+      filteredTasks.forEach(task => {
+        if (!task.category) return;
+        
+        const category = categories.find(c => c.id === task.category);
+        if (!category) return;
+
+        const current = stats.get(category.name) || { completed: 0, total: 0 };
+        
+        stats.set(category.name, {
+          completed: current.completed + (task.completed ? 1 : 0),
+          total: current.total + 1
+        });
+      });
+
+      return Array.from(stats.entries()).map(([name, data]) => ({
+        name,
+        ...data,
+        progress: data.total > 0 ? (data.completed / data.total) * 100 : 0,
+        color: getCategoryStyle(name).color
+      }));
+    }, [filteredTasks, categories]);
+
+    return (
+      <Surface style={styles.fullWidthCard}>
+        <Text variant="titleMedium" style={styles.cardTitle}>Category Performance</Text>
+        {categoryStats.map(stat => (
+          <View key={stat.name} style={styles.categoryItem}>
+            <View style={styles.categoryHeader}>
+              <Text>{stat.name}</Text>
+              <Text>{`${stat.completed}/${stat.total}`}</Text>
+            </View>
+            <View style={styles.progressBar}>
+              <View 
+                style={[
+                  styles.progressFill,
+                  { 
+                    width: `${stat.progress}%`,
+                    backgroundColor: stat.color
+                  }
+                ]} 
+              />
+            </View>
+          </View>
+        ))}
+      </Surface>
+    );
+  };
+
+  return (
+    <ScrollView style={styles.container}>
+      <Surface style={styles.header}>
+        <Text style={styles.title}>Task Analytics</Text>
+        <Text style={styles.subtitle}>Track your productivity</Text>
+      </Surface>
+
+      <CompletionTrends />
       <View style={styles.sectionSpacer} />
-
-      {renderCompletedTasks()}
+      
+      <CompletionChart />
+      <View style={styles.sectionSpacer} />
+      
+      <CategoryPerformance />
+      <View style={styles.sectionSpacer} />
+      
+      <TimeAnalysis />
+      <View style={styles.sectionSpacer} />
+      
+      <PriorityDistribution />
     </ScrollView>
   );
 }
@@ -785,19 +1097,26 @@ const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.surface,
   },
   header: {
-    padding: 24,
     backgroundColor: colors.primary,
-    marginBottom: 8,
+    paddingVertical: 16,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    elevation: 2,
   },
   title: {
     color: 'white',
-    fontWeight: 'bold',
+    fontSize: 24,
+    fontWeight: '700',
+    paddingHorizontal: 16,
   },
   subtitle: {
     color: 'white',
-    opacity: 0.8,
+    opacity: 0.9,
+    fontSize: 14,
+    paddingHorizontal: 16,
     marginTop: 4,
   },
   section: {
@@ -1044,7 +1363,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   sectionSpacer: {
-    height: 8,
+    height: 1,
+    backgroundColor: colors.surfaceVariant,
   },
   categoryItem: {
     backgroundColor: 'white',
@@ -1060,13 +1380,127 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   progressBar: {
-    height: 4,
-    backgroundColor: colors.surfaceVariant,
-    borderRadius: 2,
+    height: 6,
+    backgroundColor: `${colors.surfaceVariant}50`,
+    borderRadius: 3,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 2,
+    borderRadius: 3,
+  },
+  trendCard: {
+    margin: 16,
+    padding: 16,
+    borderRadius: 12,
+    elevation: 4,
+  },
+  trendContent: {
+    gap: 16,
+  },
+  statRow: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  categoryCard: {
+    margin: 16,
+    padding: 16,
+    borderRadius: 12,
+    elevation: 4,
+  },
+  timeCard: {
+    flex: 1,
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: colors.surface,
+    elevation: 1,
+  },
+  timeGrid: {
+    flexDirection: 'row',
+    padding: 12,
+    gap: 8,
+  },
+  chartCard: {
+    margin: 16,
+    padding: 16,
+    borderRadius: 12,
+    elevation: 4,
+  },
+  fullWidthCard: {
+    marginVertical: 1,
+    borderRadius: 0,
+    elevation: 1,
+    backgroundColor: colors.surface,
+  },
+  cardTitle: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    fontWeight: '600',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.surfaceVariant,
+  },
+  chartContainer: {
+    paddingVertical: 12,
+  },
+  chart: {
+    borderRadius: 0,
+  },
+  statsGrid: {
+    padding: 16,
+    gap: 12,
+  },
+  priorityList: {
+    padding: 12,
+    gap: 8,
+  },
+  priorityItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    elevation: 1,
+  },
+  priorityHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  priorityIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceVariant,
+  },
+  priorityTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  priorityCount: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  timeCount: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.primary,
+    marginVertical: 8,
+  },
+  timeLabel: {
+    fontSize: 13,
+    color: colors.onSurfaceVariant,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  timeDescription: {
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
+    textAlign: 'center',
+    marginTop: 2,
   },
 }); 
