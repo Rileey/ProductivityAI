@@ -29,6 +29,13 @@ const PRIORITY_COLORS = {
   none: colors.surfaceVariant,
 } as const;
 
+const CATEGORY_COLORS = {
+  'Chores': '#FFA000',  // Yellow
+  'Parents': '#2196F3', // Blue
+  'Work': '#F44336',    // Red
+  'default': colors.primary, // Default color for other categories
+} as const;
+
 function DueTimeDisplay({ dueDate, dueTime, completed }: { 
   dueDate: string, 
   dueTime: string | null,
@@ -111,7 +118,9 @@ export default function TaskItem({ task, onToggleComplete, onEdit, onDelete }: T
   const swipeableRef = useRef<Swipeable>(null);
   const isOverdue = task.due_date && new Date(task.due_date) < new Date() && !task.completed;
   const categories = useSelector((state: RootState) => state.categories.categories);
-  const categoryName = categories.find(cat => cat.id === task.category)?.name;
+  const category = categories.find(cat => cat.id === task.category);
+  const categoryName = category?.name;
+  const categoryColor = categoryName ? CATEGORY_COLORS[categoryName as keyof typeof CATEGORY_COLORS] || CATEGORY_COLORS.default : CATEGORY_COLORS.default;
 
   const formatDueDate = (date: string) => {
     const dueDate = new Date(date);
@@ -215,13 +224,19 @@ export default function TaskItem({ task, onToggleComplete, onEdit, onDelete }: T
                   </View>
                 )}
                 {categoryName && (
-                  <View style={[styles.badge, { backgroundColor: `${colors.primary}10` }]}>
+                  <View style={[
+                    styles.badge, 
+                    { backgroundColor: `${categoryColor}15` }
+                  ]}>
                     <MaterialCommunityIcons 
                       name={icons.folder} 
                       size={12}
-                      color={colors.primary} 
+                      color={categoryColor}
                     />
-                    <Text style={[styles.badgeText, { color: colors.primary }]}>
+                    <Text style={[
+                      styles.badgeText, 
+                      { color: categoryColor }
+                    ]}>
                       {categoryName}
                     </Text>
                   </View>

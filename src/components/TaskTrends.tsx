@@ -1046,4 +1046,27 @@ const styles = StyleSheet.create({
   sectionSpacer: {
     height: 8,
   },
+  categoryItem: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 12,
+    elevation: 1,
+  },
+  categoryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  progressBar: {
+    height: 4,
+    backgroundColor: colors.surfaceVariant,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
 }); 

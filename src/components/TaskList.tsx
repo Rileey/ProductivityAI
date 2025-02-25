@@ -13,6 +13,7 @@ import TaskItem from './TaskItem';
 import { DATE_RANGES } from './TaskTrends';
 import { isToday, startOfDay, endOfDay, isSameDay, format, formatDistanceToNow, isPast, differenceInMinutes, differenceInHours, differenceInDays } from 'date-fns';
 import { icons } from '../theme/icons';
+import { getCategoryStyle } from '../constants/categoryColors';
 
 type Task = Database['public']['Tables']['tasks']['Row'];
 
@@ -391,8 +392,8 @@ export default function TaskList({
   };
 
   const renderTaskItem = ({ item }: { item: Task }) => {
-    // Get category name from the categories list
-    const categoryName = categories.find(cat => cat.id === item.category)?.name;
+    const categoryName = categories.find(cat => cat.id === item.category)?.name || null;
+    const categoryStyle = getCategoryStyle(categoryName);
 
     return (
       <Swipeable
@@ -442,15 +443,23 @@ export default function TaskList({
                       </View>
                     )}
 
-                    {/* Category */}
+                    {/* Category badge with color */}
                     {categoryName && (
-                      <View style={styles.taskMetaItem}>
+                      <View style={[
+                        styles.taskMetaItem,
+                        styles.categoryBadge,
+                        { backgroundColor: `${categoryStyle.color}15` }
+                      ]}>
                         <MaterialCommunityIcons 
-                          name="folder-outline"
+                          name={categoryStyle.icon}
                           size={14} 
-                          color={colors.onSurfaceVariant} 
+                          color={categoryStyle.color}
                         />
-                        <Text style={styles.taskMetaText}>
+                        <Text style={[
+                          styles.taskMetaText,
+                          styles.categoryText,
+                          { color: categoryStyle.color }
+                        ]}>
                           {categoryName}
                         </Text>
                       </View>
@@ -459,14 +468,21 @@ export default function TaskList({
                     {/* Priority tag */}
                     {item.priority && (
                       <View style={[
+                        styles.taskMetaItem,
                         styles.priorityTag, 
                         { backgroundColor: getPriorityColor(item.priority) + '20' }
                       ]}>
+                        <MaterialCommunityIcons 
+                          name="flag"
+                          size={14} 
+                          color={getPriorityColor(item.priority)}
+                        />
                         <Text style={[
+                          styles.taskMetaText,
                           styles.priorityText, 
                           { color: getPriorityColor(item.priority) }
                         ]}>
-                          {item.priority}
+                          {`${item.priority} priority`}
                         </Text>
                       </View>
                     )}
@@ -602,12 +618,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 4,
   },
   taskMetaItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 2,
   },
   taskMetaText: {
     fontSize: 12,
@@ -642,5 +658,14 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     backgroundColor: colors.error,
+  },
+  categoryBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 12,
+    marginRight: 4,
+  },
+  categoryText: {
+    fontWeight: '500',
   },
 }); 

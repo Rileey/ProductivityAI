@@ -9,6 +9,15 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
 import LoadingScreen from '../../src/components/LoadingScreen';
 
+type DateRange = 'today' | 'week' | 'month' | 'quarter' | 'all';
+
+interface FilterOptions {
+  dateRange: DateRange;
+  status?: 'overdue' | 'today' | 'upcoming' | null;
+  category?: string | null;
+  priority?: string | null;
+}
+
 export default function Analytics() {
   const dispatch = useDispatch<AppDispatch>();
   const { session } = useAuth();
@@ -16,12 +25,7 @@ export default function Analytics() {
   const router = useRouter();
   const [refreshing, setRefreshing] = React.useState(false);
 
-  const handleFilterChange = (filters: {
-    dateRange: 'week' | 'month' | 'quarter' | 'all';
-    status?: 'overdue' | 'today' | 'upcoming' | null;
-    category?: string | null;
-    priority?: string | null;
-  }) => {
+  const handleFilterChange = (filters: FilterOptions) => {
     const params = {
       dateRange: filters.dateRange,
       // Only include non-null values

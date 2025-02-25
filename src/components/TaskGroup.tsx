@@ -14,9 +14,9 @@ interface TaskGroupProps {
   tasks: Task[];
   color?: string;
   onPress?: () => void;
-  onTaskToggle?: (taskId: string, completed: boolean) => void;
-  onTaskEdit?: (task: Task) => void;
-  onTaskDelete?: (taskId: string) => void;
+  onTaskToggle: (taskId: string, completed: boolean) => void;
+  onTaskEdit: (task: Task) => void;
+  onTaskDelete: (taskId: string) => void;
 }
 
 export default function TaskGroup({ 
@@ -25,9 +25,9 @@ export default function TaskGroup({
   tasks, 
   color = colors.primary,
   onPress,
-  onTaskToggle,
-  onTaskEdit,
-  onTaskDelete 
+  onTaskToggle = () => {},
+  onTaskEdit = () => {},
+  onTaskDelete = () => {}
 }: TaskGroupProps) {
   const [expanded, setExpanded] = useState(false);
   const rotateAnim = useRef(new Animated.Value(0)).current;
