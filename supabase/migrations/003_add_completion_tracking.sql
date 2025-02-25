@@ -1,0 +1,3 @@
+ALTER TABLE public.tasks
+ADD COLUMN completed_at TIMESTAMP WITH TIME ZONE,
+ADD COLUMN completed_on_time BOOLEAN DEFAULT NULL; 
