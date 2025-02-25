@@ -6,7 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { Database } from '../types/database';
 import { colors } from '../theme/colors';
 import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
-import { icons, type IconName } from '../theme/icons';
+import { icons } from '../theme/icons';
 import { startOfDay, subDays, format, isSameDay } from 'date-fns';
 import StatCard from './StatCard';
 import { useSelector } from 'react-redux';
@@ -14,6 +14,7 @@ import type { RootState } from '../store';
 import { getCategoryStyle } from '../constants/categoryColors';
 import AnalyticsFilterBar from './AnalyticsFilterBar';
 import { LineChart } from 'react-native-chart-kit';
+import type { IconName } from '../types/category';
 
 type Task = Database['public']['Tables']['tasks']['Row'] & {
   completed_at?: string | null;
@@ -40,6 +41,7 @@ interface CategoryStat {
   category: string;
   total: number;
   completed: number;
+  icon: IconName;
 }
 
 interface TimeStats {
@@ -166,12 +168,20 @@ export default function TaskTrends({ tasks, onFilterChange }: TaskTrendsProps) {
   };
 
   const categoryStats = useMemo(() => {
-    const stats = new Map<string, { total: number; completed: number }>();
+    const stats = new Map<string, { 
+      total: number; 
+      completed: number; 
+      icon: IconName;
+    }>();
     
     filteredTasks.forEach(task => {
       const category = task.category || 'Uncategorized';
       if (!stats.has(category)) {
-        stats.set(category, { total: 0, completed: 0 });
+        stats.set(category, { 
+          total: 0, 
+          completed: 0, 
+          icon: 'folder' as IconName 
+        });
       }
       const categoryStats = stats.get(category)!;
       categoryStats.total++;
@@ -181,7 +191,8 @@ export default function TaskTrends({ tasks, onFilterChange }: TaskTrendsProps) {
     return Array.from(stats.entries()).map(([category, stats]) => ({
       category,
       ...stats,
-      completionRate: (stats.completed / stats.total) * 100
+      completionRate: (stats.completed / stats.total) * 100,
+      icon: 'folder' as IconName
     }));
   }, [filteredTasks]);
 
@@ -338,14 +349,21 @@ export default function TaskTrends({ tasks, onFilterChange }: TaskTrendsProps) {
         ) : (
           <>
             <Text variant="titleMedium" style={styles.sectionTitle}>By Category</Text>
-            {categoryStats.map(({ category, total, completed, completionRate }) => (
+            {categoryStats.map(({ category, total, completed, completionRate, icon }) => (
               <TouchableOpacity 
                 key={category} 
                 style={styles.categoryItem}
                 onPress={() => handleCategoryPress(category)}
               >
                 <View style={styles.categoryHeader}>
-                  <Text variant="bodyLarge">{category}</Text>
+                  <View style={styles.categoryHeaderLeft}>
+                    <MaterialCommunityIcons 
+                      name={icon} 
+                      size={20} 
+                      color={getCategoryStyle(category).color}
+                    />
+                    <Text variant="bodyLarge">{category}</Text>
+                  </View>
                   <Text variant="bodyMedium">
                     {completed}/{total} ({Math.round(completionRate)}%)
                   </Text>
@@ -354,7 +372,7 @@ export default function TaskTrends({ tasks, onFilterChange }: TaskTrendsProps) {
                   <View 
                     style={[
                       styles.progressFill, 
-                      { width: `${completionRate}%`, backgroundColor: colors.primary }
+                      { width: `${completionRate}%`, backgroundColor: getCategoryStyle(category).color }
                     ]} 
                   />
                 </View>
@@ -381,7 +399,7 @@ export default function TaskTrends({ tasks, onFilterChange }: TaskTrendsProps) {
                 <Card style={styles.priorityCard}>
                   <Card.Content>
                     <MaterialCommunityIcons 
-                      name={icons.flag} 
+                      name={(icons.flag as IconName)} 
                       size={24} 
                       color={PRIORITY_COLORS[priority as keyof typeof PRIORITY_COLORS]} 
                     />
@@ -878,9 +896,9 @@ export default function TaskTrends({ tasks, onFilterChange }: TaskTrendsProps) {
           />
           <StatCard
             icon={icons.clockAlert}
-            title="Overdue"
+            title="Completed Late"
             value={stats.late}
-            subtitle="Need attention"
+            subtitle="Past due date"
             description={`${stats.pending} tasks remaining`}
             color={colors.warning}
           />
@@ -939,7 +957,7 @@ export default function TaskTrends({ tasks, onFilterChange }: TaskTrendsProps) {
               { backgroundColor: `${data.color}08` }
             ]}>
               <MaterialCommunityIcons 
-                name={data.icon} 
+                name={data.icon as IconName} 
                 size={28} 
                 color={data.color} 
               />
@@ -987,7 +1005,7 @@ export default function TaskTrends({ tasks, onFilterChange }: TaskTrendsProps) {
               <View style={styles.priorityHeader}>
                 <View style={styles.priorityIcon}>
                   <MaterialCommunityIcons 
-                    name="flag" 
+                    name={(icons.flag as IconName)} 
                     size={20} 
                     color={stat.color} 
                   />
@@ -1018,7 +1036,7 @@ export default function TaskTrends({ tasks, onFilterChange }: TaskTrendsProps) {
   // Add the CategoryPerformance component
   const CategoryPerformance = () => {
     const categoryStats = useMemo(() => {
-      const stats = new Map<string, { completed: number; total: number; icon: string }>();
+      const stats = new Map<string, { completed: number; total: number; icon: IconName }>();
       
       filteredTasks.forEach(task => {
         if (!task.category) return;
@@ -1051,7 +1069,7 @@ export default function TaskTrends({ tasks, onFilterChange }: TaskTrendsProps) {
             <View style={styles.categoryHeader}>
               <View style={styles.categoryHeaderLeft}>
                 <MaterialCommunityIcons 
-                  name={stat.icon || 'folder'} 
+                  name={(stat.icon || 'folder') as IconName} 
                   size={20} 
                   color={stat.color} 
                 />
@@ -1278,7 +1296,8 @@ const styles = StyleSheet.create({
     minWidth: '45%',
   },
   priorityCount: {
-    marginVertical: 8,
+    fontSize: 18,
+    fontWeight: '700',
   },
   weeklyItem: {
     marginBottom: 16,
@@ -1488,10 +1507,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: '600',
-  },
-  priorityCount: {
-    fontSize: 18,
-    fontWeight: '700',
   },
   timeCount: {
     fontSize: 28,

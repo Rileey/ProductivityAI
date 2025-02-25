@@ -229,6 +229,40 @@ notifications (
 )
 ```
 
+### Partner Invitations Table
+```sql
+partner_invitations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    sender_id UUID REFERENCES auth.users(id) NOT NULL,
+    recipient_email TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
+    expires_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW() + INTERVAL '7 days')
+)
+```
+
+### Task Partners Table
+```sql
+task_partners (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES auth.users(id) NOT NULL,
+    partner_id UUID REFERENCES auth.users(id) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
+    UNIQUE(user_id, partner_id)
+)
+```
+
+### Task Comments Table
+```sql
+task_comments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    task_id UUID REFERENCES tasks(id) NOT NULL,
+    user_id UUID REFERENCES auth.users(id) NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
+)
+```
+
 ## Project Structure
 ```
 productivity-app/

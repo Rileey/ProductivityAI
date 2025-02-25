@@ -63,10 +63,10 @@ export default function AITaskInsights() {
       return (
         <Button 
           mode="outlined" 
-          compact 
+          compact={false}
           style={styles.actionButton}
+          labelStyle={styles.actionButtonLabel}
           onPress={() => {
-            // Navigate to tasks filtered by priority
             router.push({
               pathname: '/home',
               params: { filter: 'priority' }
@@ -82,10 +82,10 @@ export default function AITaskInsights() {
       return (
         <Button 
           mode="outlined" 
-          compact 
+          compact={false}
           style={styles.actionButton}
+          labelStyle={styles.actionButtonLabel}
           onPress={() => {
-            // Navigate to overdue tasks
             router.push({
               pathname: '/home',
               params: { filter: 'overdue' }
@@ -101,10 +101,10 @@ export default function AITaskInsights() {
       return (
         <Button 
           mode="outlined" 
-          compact 
+          compact={false}
           style={styles.actionButton}
+          labelStyle={styles.actionButtonLabel}
           onPress={() => {
-            // Navigate to completed tasks
             router.push({
               pathname: '/home',
               params: { dateRange: 'week', status: 'upcoming' }
@@ -146,21 +146,9 @@ export default function AITaskInsights() {
   }
   
   return (
-    <Card style={styles.container} mode="outlined">
-      <Card.Title
-        title="AI Productivity Insights"
-        left={(props) => <MaterialCommunityIcons {...props} name="lightbulb-outline" size={24} color={colors.primary} />}
-        right={(props) => (
-          <IconButton
-            {...props}
-            icon={expanded ? "chevron-up" : "chevron-down"}
-            onPress={() => setExpanded(!expanded)}
-          />
-        )}
-      />
-      <Divider />
-      {expanded && (
-        <Card.Content style={styles.content}>
+    <View>
+      {expanded ? (
+        <View style={styles.expandedContainer}>
           {insights.map((insight, index) => (
             <View key={index} style={styles.insightItem}>
               <View style={styles.insightContent}>
@@ -178,9 +166,24 @@ export default function AITaskInsights() {
               </View>
             </View>
           ))}
-        </Card.Content>
+        </View>
+      ) : (
+        <TouchableOpacity 
+          style={styles.collapsedContainer} 
+          onPress={() => setExpanded(true)}
+        >
+          <Text style={styles.collapsedText}>
+            {insights.length} insight{insights.length !== 1 ? 's' : ''} available
+          </Text>
+          <IconButton
+            icon="chevron-down"
+            size={20}
+            onPress={() => setExpanded(true)}
+            style={styles.expandButton}
+          />
+        </TouchableOpacity>
       )}
-    </Card>
+    </View>
   );
 }
 
@@ -221,8 +224,17 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     marginLeft: 8,
-    marginTop: -4,
-    height: 28,
+    backgroundColor: colors.primaryContainer,
+    borderColor: colors.primary,
+    borderWidth: 1,
+    height: 36,
+    marginVertical: 2,
+  },
+  actionButtonLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.primary,
+    marginHorizontal: 8,
   },
   insightActions: {
     flexDirection: 'row',
@@ -231,5 +243,23 @@ const styles = StyleSheet.create({
   dismissButton: {
     margin: 0,
     padding: 0,
+  },
+  collapsedContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  expandedContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  collapsedText: {
+    color: colors.primary,
+    fontSize: 14,
+  },
+  expandButton: {
+    margin: 0,
   },
 }); 

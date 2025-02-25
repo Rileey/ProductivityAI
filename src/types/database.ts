@@ -1,3 +1,6 @@
+import type { TaskComment } from './partner';
+import type { IconName } from './category';
+
 export type Json =
   | string
   | number
@@ -30,7 +33,7 @@ export interface Database {
           user_id: string
           name: string
           color: string | null
-          icon: string | null
+          icon: IconName | null
           created_at: string
         }
         Insert: Omit<Database['public']['Tables']['categories']['Row'], 'id' | 'created_at'>
@@ -120,4 +123,16 @@ export interface Database {
   }
 }
 
-export type Tables<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T] 
+export type Tables<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]
+
+export interface Task extends Database['public']['Tables']['tasks']['Row'] {
+  requires_partner_approval?: boolean;
+  partner_approved?: boolean | null;
+  partner_id?: string | null;
+  comments?: TaskComment[];
+  partner?: {
+    id: string;
+    email: string;
+    full_name: string;
+  } | null;
+} 
